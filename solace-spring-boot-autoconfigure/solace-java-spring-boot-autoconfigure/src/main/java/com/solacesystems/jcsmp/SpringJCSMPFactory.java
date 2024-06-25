@@ -19,31 +19,77 @@
 
 package com.solacesystems.jcsmp;
 
+import com.solace.spring.boot.autoconfigure.SolaceJavaProperties;
+import java.util.Objects;
+import org.springframework.lang.Nullable;
+import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
+
 /**
  * Wrapper of JCSMP Singleton Factory to more easily work within Spring Auto Configuration environments.
  */
 public class SpringJCSMPFactory {
     
     protected JCSMPProperties jcsmpProperties;
+  protected AuthorizedClientServiceOAuth2AuthorizedClientManager oAuth2AuthorizedClientManager;
 
-    public SpringJCSMPFactory(JCSMPProperties properties) {
-        this.jcsmpProperties = (JCSMPProperties)properties.clone();
+  public SpringJCSMPFactory(JCSMPProperties properties,
+      @Nullable AuthorizedClientServiceOAuth2AuthorizedClientManager oAuth2AuthorizedClientManager) {
+    this.jcsmpProperties = (JCSMPProperties) properties.clone();
+    this.oAuth2AuthorizedClientManager = oAuth2AuthorizedClientManager;
+  }
+
+
+  /**
+   * Acquires a {@link JCSMPSession} implementation for the specified
+   * properties in the default <code>Context</code>.
+   *
+   * @return A {@link JCSMPSession} implementation with the specified
+   *         properties.
+   * @throws InvalidPropertiesException
+   *             Thrown if the required properties are not provided, or if
+   *             unsupported properties (and combinations) are detected.
+   */
+  public JCSMPSession createSession() throws InvalidPropertiesException {
+    if (JCSMPProperties.AUTHENTICATION_SCHEME_OAUTH2.equalsIgnoreCase(
+        jcsmpProperties.getStringProperty(JCSMPProperties.AUTHENTICATION_SCHEME))) {
+
+      final String clientUserName = Objects.toString(
+          jcsmpProperties.getStringProperty(JCSMPProperties.USERNAME), "solace-java");
+      final String oauth2ClientRegistrationId = jcsmpProperties.getStringProperty(
+          SolaceJavaProperties.SPRING_OAUTH2_CLIENT_REGISTRATION_ID);
+      final OAuth2AuthorizeRequest authorizeRequest =
+          OAuth2AuthorizeRequest.withClientRegistrationId(oauth2ClientRegistrationId)
+              .principal(clientUserName)
+              .build();
+
+      //Perform the actual authorization request using the authorized client service and authorized
+      //client manager. This is where the JWT is retrieved from the OAuth/OIDC servers.
+      final OAuth2AuthorizedClient oAuth2AuthorizedClient = Objects.requireNonNull(
+          oAuth2AuthorizedClientManager).authorize(authorizeRequest);
+
+      // Get the token from the authorized client object
+      final OAuth2AccessToken accessToken = Objects.requireNonNull(oAuth2AuthorizedClient)
+          .getAccessToken();
+
+      System.out.println("Issued: " + accessToken.getIssuedAt().toString() + ", Expires:"
+          + accessToken.getExpiresAt().toString());
+      System.out.println("Scopes: " + accessToken.getScopes().toString());
+      System.out.println("Token: " + accessToken.getTokenValue());
+      jcsmpProperties.setProperty(JCSMPProperties.OAUTH2_ACCESS_TOKEN, accessToken.getTokenValue());
+
+      DefaultSessionEventHandler defaultSessionEventHandler = new DefaultSessionEventHandler(
+          this.jcsmpProperties, this.oAuth2AuthorizedClientManager);
+      JCSMPSession jcsmpSession = JCSMPFactory.onlyInstance()
+          .createSession(jcsmpProperties, null, defaultSessionEventHandler);
+      defaultSessionEventHandler.setJcsmpSession(jcsmpSession);
+      return jcsmpSession;
     }
 
-
-    /**
-     * Acquires a {@link JCSMPSession} implementation for the specified
-     * properties in the default <code>Context</code>.
-     * 
-     * @return A {@link JCSMPSession} implementation with the specified
-     *         properties.
-     * @throws InvalidPropertiesException
-     *             Thrown if the required properties are not provided, or if
-     *             unsupported properties (and combinations) are detected.
-     */
-    public JCSMPSession createSession() throws InvalidPropertiesException {
-        return JCSMPFactory.onlyInstance().createSession(jcsmpProperties);
-    }
+    return JCSMPFactory.onlyInstance().createSession(jcsmpProperties);
+  }
 
     /**
      * Acquires a {@link JCSMPSession} and associates it to the given

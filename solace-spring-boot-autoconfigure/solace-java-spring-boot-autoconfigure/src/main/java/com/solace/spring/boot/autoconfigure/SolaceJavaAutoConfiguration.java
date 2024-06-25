@@ -33,12 +33,16 @@ import org.springframework.boot.autoconfigure.jms.JmsAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.lang.Nullable;
+import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
 
 @Configuration
 @AutoConfigureBefore(JmsAutoConfiguration.class)
 @ConditionalOnClass({JCSMPProperties.class})
 @ConditionalOnMissingBean(SpringJCSMPFactory.class)
 @EnableConfigurationProperties(SolaceJavaProperties.class)
+@Import(OAuthClientConfiguration.class)
 public class SolaceJavaAutoConfiguration {
 
   private SolaceJavaProperties properties;
@@ -54,8 +58,9 @@ public class SolaceJavaAutoConfiguration {
    * @return {@link SpringJCSMPFactory} based on {@link JCSMPProperties} bean.
    */
   @Bean
-  public SpringJCSMPFactory getSpringJCSMPFactory(JCSMPProperties jcsmpProperties) {
-    return new SpringJCSMPFactory(jcsmpProperties);
+  public SpringJCSMPFactory getSpringJCSMPFactory(JCSMPProperties jcsmpProperties,
+      @Nullable AuthorizedClientServiceOAuth2AuthorizedClientManager oAuth2authorizedClientServiceAndManager) {
+    return new SpringJCSMPFactory(jcsmpProperties, oAuth2authorizedClientServiceAndManager);
   }
 
   /**
@@ -87,6 +92,12 @@ public class SolaceJavaAutoConfiguration {
     cp.setReconnectRetries(properties.getReconnectRetries());
     cp.setConnectRetriesPerHost(properties.getConnectRetriesPerHost());
     cp.setReconnectRetryWaitInMillis(properties.getReconnectRetryWaitInMillis());
+
+    if(properties.getSpringOauth2ClientRegistrationId() != null) {
+      jcsmpProps.setProperty(SolaceJavaProperties.SPRING_OAUTH2_CLIENT_REGISTRATION_ID,
+          properties.getSpringOauth2ClientRegistrationId());
+    }
+
     return jcsmpProps;
   }
 

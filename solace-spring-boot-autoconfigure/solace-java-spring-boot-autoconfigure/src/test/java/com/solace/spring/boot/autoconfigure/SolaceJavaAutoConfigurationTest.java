@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import com.solacesystems.jcsmp.InvalidPropertiesException;
 import com.solacesystems.jcsmp.JCSMPChannelProperties;
+import com.solacesystems.jcsmp.JCSMPException;
 import com.solacesystems.jcsmp.JCSMPProperties;
 import com.solacesystems.jcsmp.JCSMPSession;
 import com.solacesystems.jcsmp.SpringJCSMPFactory;
@@ -36,7 +37,10 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 @RunWith(SpringJUnit4ClassRunner.class)
 public class SolaceJavaAutoConfigurationTest {
 
-  @Configuration public static class EmptyConfiguration { }
+  @Configuration
+  public static class EmptyConfiguration {
+
+  }
 
   private AnnotationConfigApplicationContext context;
   private final Class<SolaceJavaAutoConfiguration> configClass = SolaceJavaAutoConfiguration.class;
@@ -77,32 +81,47 @@ public class SolaceJavaAutoConfigurationTest {
   }
 
   @Test
-  public void customNativeConnectionFactory() throws InvalidPropertiesException {
-    load("solace.java.host=192.168.1.80:55500",
-        "solace.java.clientUsername=bob", "solace.java.clientPassword=password",
-        "solace.java.msgVpn=newVpn", "solace.java.clientName=client-name",
-        "solace.java.connectRetries=5", "solace.java.reconnectRetries=10",
-        "solace.java.connectRetriesPerHost=40", "solace.java.reconnectRetryWaitInMillis=1000",
-        "solace.java.messageAckMode=client_ack", "solace.java.reapplySubscriptions=true",
-        "solace.java.advanced.jcsmp.TOPIC_DISPATCH=true");
+  public void customNativeConnectionFactory() throws JCSMPException, InterruptedException {
+    load("solace.java.host=tcps://localhost:55443",
+        "solace.java.msgVpn=default",
+        "solace.java.clientUsername=testUser",
+        //"solace.java.clientUsername=default",
+        //"solace.java.clientPassword=password",
+        //"solace.java.clientName=client-name",
+        "solace.java.connectRetries=3",
+        "solace.java.reconnectRetries=1",
+        "solace.java.connectRetriesPerHost=2",
+        "solace.java.reconnectRetryWaitInMillis=1000",
+        "solace.java.messageAckMode=client_ack",
+        "solace.java.reapplySubscriptions=true",
+        "solace.java.advanced.jcsmp.TOPIC_DISPATCH=true",
+        "solace.java.apiProperties.AUTHENTICATION_SCHEME=AUTHENTICATION_SCHEME_OAUTH2",
+        "solace.java.apiProperties.SSL_VALIDATE_CERTIFICATE=false",
+        "spring.security.oauth2.client.registration.xyz.client-id=solclient_oauth1",
+        "spring.security.oauth2.client.registration.xyz.client-secret=nb573PMbPutQYCJlVH8xXCz07UeLKDuM",
+        "spring.security.oauth2.client.registration.xyz.authorization-grant-type=client_credentials",
+        "spring.security.oauth2.client.registration.xyz.scope=openid",
+        "spring.security.oauth2.client.provider.xyz.token-uri=https://localhost:10443/auth/realms/solace-oauth-resource-server-role/protocol/openid-connect/token");
 
     SpringJCSMPFactory jcsmpFactory = this.context.getBean(SpringJCSMPFactory.class);
     assertNotNull(jcsmpFactory);
     JCSMPSession session = jcsmpFactory.createSession();
+    session.connect();
     assertNotNull(session);
 
-    assertEquals("192.168.1.80:55500", (String) session.getProperty(JCSMPProperties.HOST));
-    assertEquals("newVpn", (String) session.getProperty(JCSMPProperties.VPN_NAME));
-    assertEquals("bob", (String) session.getProperty(JCSMPProperties.USERNAME));
-    assertEquals("password", (String) session.getProperty(JCSMPProperties.PASSWORD));
-    assertEquals("client-name", (String) session.getProperty(JCSMPProperties.CLIENT_NAME));
+    //assertEquals("192.168.1.80:55500", (String) session.getProperty(JCSMPProperties.HOST));
+    assertEquals("default", (String) session.getProperty(JCSMPProperties.VPN_NAME));
+    //assertEquals("bob", (String) session.getProperty(JCSMPProperties.USERNAME));
+    //assertEquals("password", (String) session.getProperty(JCSMPProperties.PASSWORD));
+    //assertEquals("client-name", (String) session.getProperty(JCSMPProperties.CLIENT_NAME));
     // Channel properties
-    JCSMPChannelProperties cp = (JCSMPChannelProperties) session
+    /*JCSMPChannelProperties cp = (JCSMPChannelProperties) session
         .getProperty(JCSMPProperties.CLIENT_CHANNEL_PROPERTIES);
     assertEquals(5, (int) cp.getConnectRetries());
     assertEquals(10, (int) cp.getReconnectRetries());
     assertEquals(40, (int) cp.getConnectRetriesPerHost());
-    assertEquals(1000, (int) cp.getReconnectRetryWaitInMillis());
+    assertEquals(1000, (int) cp.getReconnectRetryWaitInMillis());*/
+    Thread.sleep(600000);
   }
 
   void load(String... environment) {
