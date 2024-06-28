@@ -19,134 +19,109 @@
 
 package com.solacesystems.jcsmp;
 
-import com.solace.spring.boot.autoconfigure.SolaceJavaProperties;
-import java.util.Objects;
 import org.springframework.lang.Nullable;
-import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
-import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
 
 /**
- * Wrapper of JCSMP Singleton Factory to more easily work within Spring Auto Configuration environments.
+ * Wrapper of JCSMP Singleton Factory to more easily work within Spring Auto Configuration
+ * environments.
  */
 public class SpringJCSMPFactory {
-    
-    protected JCSMPProperties jcsmpProperties;
-  protected AuthorizedClientServiceOAuth2AuthorizedClientManager oAuth2AuthorizedClientManager;
+
+  protected JCSMPProperties jcsmpProperties;
+  protected SolaceSessionOAuth2TokenProvider solaceSessionOAuth2TokenProvider;
 
   public SpringJCSMPFactory(JCSMPProperties properties,
-      @Nullable AuthorizedClientServiceOAuth2AuthorizedClientManager oAuth2AuthorizedClientManager) {
+      @Nullable SolaceSessionOAuth2TokenProvider solaceSessionOAuth2TokenProvider) {
     this.jcsmpProperties = (JCSMPProperties) properties.clone();
-    this.oAuth2AuthorizedClientManager = oAuth2AuthorizedClientManager;
+    this.solaceSessionOAuth2TokenProvider = solaceSessionOAuth2TokenProvider;
   }
 
 
   /**
-   * Acquires a {@link JCSMPSession} implementation for the specified
-   * properties in the default <code>Context</code>.
+   * Acquires a {@link JCSMPSession} implementation for the specified properties in the default
+   * <code>Context</code>.
    *
-   * @return A {@link JCSMPSession} implementation with the specified
-   *         properties.
-   * @throws InvalidPropertiesException
-   *             Thrown if the required properties are not provided, or if
-   *             unsupported properties (and combinations) are detected.
+   * @return A {@link JCSMPSession} implementation with the specified properties.
+   * @throws InvalidPropertiesException Thrown if the required properties are not provided, or if
+   *                                    unsupported properties (and combinations) are detected.
    */
   public JCSMPSession createSession() throws InvalidPropertiesException {
+    return createSession(null);
+  }
+
+  /**
+   * Acquires a {@link JCSMPSession} and associates it to the given {@link Context}.
+   *
+   * @param context The <code>Context</code> in which the new session will be created and associated
+   *                with. If <code>null</code>, the default context is used.
+   * @return A newly constructed session in <code>context</code>.
+   * @throws InvalidPropertiesException on error
+   */
+  public JCSMPSession createSession(Context context) throws InvalidPropertiesException {
+    return createSession(context, null);
+  }
+
+  /**
+   * Acquires a {@link JCSMPSession} and associates it to the given {@link Context}.
+   * If the authentication scheme is OAuth2, it fetches and sets the initial OAuth2 token.
+   * If the event handler is null, it creates a new session event handler that will handle OAuth2 token refreshes.
+   *
+   * @param context      The <code>Context</code> in which the new session will be created and
+   *                     associated with. If <code>null</code>, uses the default context.
+   * @param eventHandler A callback instance for handling session events.
+   * @return A newly constructed session in the <code>context</code> Context.
+   * @throws InvalidPropertiesException on error
+   */
+  public JCSMPSession createSession(
+      Context context,
+      SessionEventHandler eventHandler) throws InvalidPropertiesException {
     if (JCSMPProperties.AUTHENTICATION_SCHEME_OAUTH2.equalsIgnoreCase(
         jcsmpProperties.getStringProperty(JCSMPProperties.AUTHENTICATION_SCHEME))) {
 
-      final String clientUserName = Objects.toString(
-          jcsmpProperties.getStringProperty(JCSMPProperties.USERNAME), "solace-java");
-      final String oauth2ClientRegistrationId = jcsmpProperties.getStringProperty(
-          SolaceJavaProperties.SPRING_OAUTH2_CLIENT_REGISTRATION_ID);
-      final OAuth2AuthorizeRequest authorizeRequest =
-          OAuth2AuthorizeRequest.withClientRegistrationId(oauth2ClientRegistrationId)
-              .principal(clientUserName)
-              .build();
+      //Fetch and set the initial OAuth2 token
+      jcsmpProperties.setProperty(JCSMPProperties.OAUTH2_ACCESS_TOKEN,
+          solaceSessionOAuth2TokenProvider.getAccessToken());
 
-      //Perform the actual authorization request using the authorized client service and authorized
-      //client manager. This is where the JWT is retrieved from the OAuth/OIDC servers.
-      final OAuth2AuthorizedClient oAuth2AuthorizedClient = Objects.requireNonNull(
-          oAuth2AuthorizedClientManager).authorize(authorizeRequest);
-
-      // Get the token from the authorized client object
-      final OAuth2AccessToken accessToken = Objects.requireNonNull(oAuth2AuthorizedClient)
-          .getAccessToken();
-
-      System.out.println("Issued: " + accessToken.getIssuedAt().toString() + ", Expires:"
-          + accessToken.getExpiresAt().toString());
-      System.out.println("Scopes: " + accessToken.getScopes().toString());
-      System.out.println("Token: " + accessToken.getTokenValue());
-      jcsmpProperties.setProperty(JCSMPProperties.OAUTH2_ACCESS_TOKEN, accessToken.getTokenValue());
-
-      DefaultSessionEventHandler defaultSessionEventHandler = new DefaultSessionEventHandler(
-          this.jcsmpProperties, this.oAuth2AuthorizedClientManager);
-      JCSMPSession jcsmpSession = JCSMPFactory.onlyInstance()
-          .createSession(jcsmpProperties, null, defaultSessionEventHandler);
-      defaultSessionEventHandler.setJcsmpSession(jcsmpSession);
-      return jcsmpSession;
+      if (eventHandler == null) {
+        //Create a new session event handler that will handle OAuth2 token refreshes
+        final DefaultSolaceOAuth2SessionEventHandler defaultSessionEventHandler = new DefaultSolaceOAuth2SessionEventHandler(
+            this.jcsmpProperties, this.solaceSessionOAuth2TokenProvider);
+        final JCSMPSession jcsmpSession = JCSMPFactory.onlyInstance()
+            .createSession(jcsmpProperties, context, defaultSessionEventHandler);
+        defaultSessionEventHandler.setJcsmpSession(jcsmpSession);
+        return jcsmpSession;
+      } else if (eventHandler instanceof SolaceOAuth2SessionEventHandler solaceOAuth2SessionEventHandler) {
+        final JCSMPSession jcsmpSession = JCSMPFactory.onlyInstance()
+            .createSession(jcsmpProperties, context, eventHandler);
+        solaceOAuth2SessionEventHandler.setJcsmpSession(jcsmpSession);
+      } else {
+        throw new IllegalArgumentException(
+            "Event handler must be an instance of SolaceOAuth2SessionEventHandler");
+      }
     }
 
-    return JCSMPFactory.onlyInstance().createSession(jcsmpProperties);
+    return JCSMPFactory.onlyInstance().createSession(jcsmpProperties, context, eventHandler);
   }
 
-    /**
-     * Acquires a {@link JCSMPSession} and associates it to the given
-     * {@link Context}.
-     * 
-     * @param context
-     *            The <code>Context</code> in which the new session will be
-     *            created and associated with. If <code>null</code>, the
-     *            default context is used.
-     * @return A newly constructed session in <code>context</code>.
-     * @throws InvalidPropertiesException
-     *            on error
-     */
-    public JCSMPSession createSession(Context context) throws InvalidPropertiesException {
-        return JCSMPFactory.onlyInstance().createSession(jcsmpProperties, context);
-    }
+  /* CONTEXT OPERATIONS */
+  /**
+   * Returns a reference to the default <code>Context</code>. There is a single instance of a
+   * default context in the API.
+   *
+   * @return The default <code>Context</code> instance.
+   */
+  public Context getDefaultContext() {
+    return JCSMPFactory.onlyInstance().getDefaultContext();
+  }
 
-    /**
-     * Acquires a {@link JCSMPSession} and associates it to the given
-     * {@link Context}.
-     * 
-     * @param context
-     *            The <code>Context</code> in which the new session will be
-     *            created and associated with. If <code>null</code>, uses the
-     *            default context.
-     * @param eventHandler
-     *            A callback instance for handling session events.
-     * @return A newly constructed session in the <code>context</code> Context.
-     * @throws InvalidPropertiesException
-     *            on error
-     */
-    public JCSMPSession createSession(
-        Context context,
-        SessionEventHandler eventHandler) throws InvalidPropertiesException {
-        return JCSMPFactory.onlyInstance().createSession(jcsmpProperties, context, eventHandler);
-    }
-
-    /* CONTEXT OPERATIONS */
-    /**
-     * Returns a reference to the default <code>Context</code>. There is a
-     * single instance of a default context in the API.
-     * 
-     * @return The default <code>Context</code> instance.
-     */
-    public Context getDefaultContext() {
-        return JCSMPFactory.onlyInstance().getDefaultContext();
-    }
-
-    /**
-     * Creates a new <code>Context</code> with the provided properties.
-     * 
-     * @param properties
-     *            Configuration settings for the new <code>Context</code>. If
-     *            <code>null</code>, the default configuration settings are used.
-     * @return Newly-created <code>Context</code> instance.
-     */
-    public Context createContext(ContextProperties properties) {
-        return JCSMPFactory.onlyInstance().createContext(properties);
-    }
+  /**
+   * Creates a new <code>Context</code> with the provided properties.
+   *
+   * @param properties Configuration settings for the new <code>Context</code>. If
+   *                   <code>null</code>, the default configuration settings are used.
+   * @return Newly-created <code>Context</code> instance.
+   */
+  public Context createContext(ContextProperties properties) {
+    return JCSMPFactory.onlyInstance().createContext(properties);
+  }
 }

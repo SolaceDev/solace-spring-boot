@@ -101,6 +101,13 @@ public class SolaceJavaProperties {
      */
     private final Map<String,String> apiProperties = new ConcurrentHashMap<>();
 
+    /**
+     * The Spring Security OAuth2 Client Registration Id
+     * <code>spring.security.oauth2.client.registration.&lt;registration-id&gt;</code> to use for OAuth2
+     * token
+     * retrieval. This field is required when the Solace session is configured to use OAuth2 via
+     * <code>solace.java.apiProperties.authentication_scheme=AUTHENTICATION_SCHEME_OAUTH2</code>
+     */
     private String springOauth2ClientRegistrationId;
 
     public String getSpringOauth2ClientRegistrationId() {
