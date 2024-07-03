@@ -28,4 +28,4 @@ solace:
     springOauth2ClientRegistrationId: my-oauth2-client
 
 server:
-  port: 8096
+  port: 8097
