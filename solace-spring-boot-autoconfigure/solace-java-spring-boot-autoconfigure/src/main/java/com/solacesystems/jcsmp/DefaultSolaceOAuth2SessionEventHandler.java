@@ -1,12 +1,19 @@
 package com.solacesystems.jcsmp;
 
+import static com.solacesystems.jcsmp.JCSMPProperties.AUTHENTICATION_SCHEME;
+import static com.solacesystems.jcsmp.JCSMPProperties.AUTHENTICATION_SCHEME_OAUTH2;
+import static com.solacesystems.jcsmp.SessionEvent.RECONNECTING;
 import java.util.Objects;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 /**
  * Default implementation of SolaceOAuth2SessionEventHandler. This class handles the OAuth2 token
  * refresh logic when the session is reconnecting.
  */
 public class DefaultSolaceOAuth2SessionEventHandler implements SolaceOAuth2SessionEventHandler {
+
+  private static final Log logger = LogFactory.getLog(DefaultSolaceOAuth2SessionEventHandler.class);
 
   protected final SolaceSessionOAuth2TokenProvider solaceSessionOAuth2TokenProvider;
   protected final JCSMPProperties jcsmpProperties;
@@ -30,20 +37,23 @@ public class DefaultSolaceOAuth2SessionEventHandler implements SolaceOAuth2Sessi
   @Override
   public void handleEvent(SessionEventArgs sessionEventArgs) {
     final SessionEvent event = sessionEventArgs.getEvent();
-
-    if (event == SessionEvent.RECONNECTING) {
-      handleReconnectingEvent();
+    final String authScheme = this.jcsmpProperties.getStringProperty(AUTHENTICATION_SCHEME);
+    if (event == RECONNECTING && AUTHENTICATION_SCHEME_OAUTH2.equalsIgnoreCase(authScheme)) {
+      refreshOAuth2AccessToken();
     }
   }
 
-  private void handleReconnectingEvent() {
-    if (JCSMPProperties.AUTHENTICATION_SCHEME_OAUTH2.equalsIgnoreCase(
-        this.jcsmpProperties.getStringProperty(JCSMPProperties.AUTHENTICATION_SCHEME))) {
-      try {
-        final String newAccessToken = solaceSessionOAuth2TokenProvider.getAccessToken();
-        this.jcsmpSession.setProperty(JCSMPProperties.OAUTH2_ACCESS_TOKEN, newAccessToken);
-      } catch (JCSMPException e) {
-        e.printStackTrace(); //TODO: log this properly
+  private void refreshOAuth2AccessToken() {
+    try {
+      if (logger.isDebugEnabled()) {
+        logger.debug("Refreshing OAuth2 access token");
+      }
+
+      final String newAccessToken = solaceSessionOAuth2TokenProvider.getAccessToken();
+      this.jcsmpSession.setProperty(JCSMPProperties.OAUTH2_ACCESS_TOKEN, newAccessToken);
+    } catch (JCSMPException e) {
+      if (logger.isDebugEnabled()) {
+        logger.debug("Exception while fetching/providing refreshed access token: " + e);
       }
     }
   }

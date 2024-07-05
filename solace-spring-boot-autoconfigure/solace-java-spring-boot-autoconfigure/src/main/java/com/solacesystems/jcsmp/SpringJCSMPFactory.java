@@ -19,6 +19,7 @@
 
 package com.solacesystems.jcsmp;
 
+import static com.solacesystems.jcsmp.JCSMPProperties.AUTHENTICATION_SCHEME;
 import org.springframework.lang.Nullable;
 
 /**
@@ -75,33 +76,37 @@ public class SpringJCSMPFactory {
   public JCSMPSession createSession(
       Context context,
       SessionEventHandler eventHandler) throws InvalidPropertiesException {
-    if (JCSMPProperties.AUTHENTICATION_SCHEME_OAUTH2.equalsIgnoreCase(
-        jcsmpProperties.getStringProperty(JCSMPProperties.AUTHENTICATION_SCHEME))) {
+    final String authScheme = jcsmpProperties.getStringProperty(AUTHENTICATION_SCHEME);
+    if (JCSMPProperties.AUTHENTICATION_SCHEME_OAUTH2.equalsIgnoreCase(authScheme)) {
+      return createSessionWithOAuth2(context, eventHandler);
+    } else {
+      return JCSMPFactory.onlyInstance().createSession(jcsmpProperties, context, eventHandler);
+    }
+  }
 
-      //Fetch and set the initial OAuth2 token
-      jcsmpProperties.setProperty(JCSMPProperties.OAUTH2_ACCESS_TOKEN,
-          solaceSessionOAuth2TokenProvider.getAccessToken());
-
-      if (eventHandler == null) {
-        //Create a new session event handler that will handle OAuth2 token refreshes
-        final DefaultSolaceOAuth2SessionEventHandler defaultSessionEventHandler = new DefaultSolaceOAuth2SessionEventHandler(
-            this.jcsmpProperties, this.solaceSessionOAuth2TokenProvider);
-        final JCSMPSession jcsmpSession = JCSMPFactory.onlyInstance()
-            .createSession(jcsmpProperties, context, defaultSessionEventHandler);
-        defaultSessionEventHandler.setJcsmpSession(jcsmpSession);
-        return jcsmpSession;
-      } else if (eventHandler instanceof SolaceOAuth2SessionEventHandler solaceOAuth2SessionEventHandler) {
-        final JCSMPSession jcsmpSession = JCSMPFactory.onlyInstance()
-            .createSession(jcsmpProperties, context, eventHandler);
-        solaceOAuth2SessionEventHandler.setJcsmpSession(jcsmpSession);
-        return jcsmpSession;
-      } else {
-        throw new IllegalArgumentException(
-            "Event handler must be an instance of SolaceOAuth2SessionEventHandler");
-      }
+  private JCSMPSession createSessionWithOAuth2(Context context,
+      SessionEventHandler eventHandler) throws InvalidPropertiesException {
+    if (eventHandler != null && !(eventHandler instanceof SolaceOAuth2SessionEventHandler)) {
+      throw new IllegalArgumentException(String.format(
+          "Event handler must be an instance of %s when using OAuth2 authentication scheme.",
+          SolaceOAuth2SessionEventHandler.class.getName()));
     }
 
-    return JCSMPFactory.onlyInstance().createSession(jcsmpProperties, context, eventHandler);
+    //A JCSMP SessionEventHandler, to handle OAuth2 token refreshes
+    final SolaceOAuth2SessionEventHandler solaceOAuth2SessionEventHandler =
+        eventHandler != null ? (SolaceOAuth2SessionEventHandler) eventHandler
+            : new DefaultSolaceOAuth2SessionEventHandler(this.jcsmpProperties,
+                this.solaceSessionOAuth2TokenProvider);
+
+    //Fetch and set the initial OAuth2 token
+    final String accessToken = this.solaceSessionOAuth2TokenProvider.getAccessToken();
+    this.jcsmpProperties.setProperty(JCSMPProperties.OAUTH2_ACCESS_TOKEN, accessToken);
+
+    final JCSMPSession jcsmpSession = JCSMPFactory.onlyInstance()
+        .createSession(this.jcsmpProperties, context, solaceOAuth2SessionEventHandler);
+    //inject the JCSMP Session into the event handler
+    solaceOAuth2SessionEventHandler.setJcsmpSession(jcsmpSession);
+    return jcsmpSession;
   }
 
   /* CONTEXT OPERATIONS */

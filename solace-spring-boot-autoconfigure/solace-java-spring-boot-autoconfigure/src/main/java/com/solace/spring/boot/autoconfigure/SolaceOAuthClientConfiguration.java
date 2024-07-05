@@ -38,6 +38,7 @@ public class SolaceOAuthClientConfiguration {
       OAuth2AuthorizedClientService oAuth2AuthorizedClientService) {
     final OAuth2AuthorizedClientProvider clientCredentialsAuthorizedClientProvider =
         OAuth2AuthorizedClientProviderBuilder.builder()
+            .authorizationCode()
             .clientCredentials()
             .refreshToken()
             .build();
