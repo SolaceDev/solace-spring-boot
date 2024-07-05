@@ -94,6 +94,7 @@ public class SpringJCSMPFactory {
         final JCSMPSession jcsmpSession = JCSMPFactory.onlyInstance()
             .createSession(jcsmpProperties, context, eventHandler);
         solaceOAuth2SessionEventHandler.setJcsmpSession(jcsmpSession);
+        return jcsmpSession;
       } else {
         throw new IllegalArgumentException(
             "Event handler must be an instance of SolaceOAuth2SessionEventHandler");

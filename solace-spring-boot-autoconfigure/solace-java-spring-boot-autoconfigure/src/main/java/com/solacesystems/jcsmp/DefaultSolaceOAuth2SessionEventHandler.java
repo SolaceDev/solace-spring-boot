@@ -38,10 +38,10 @@ public class DefaultSolaceOAuth2SessionEventHandler implements SolaceOAuth2Sessi
 
   private void handleReconnectingEvent() {
     if (JCSMPProperties.AUTHENTICATION_SCHEME_OAUTH2.equalsIgnoreCase(
-        jcsmpProperties.getStringProperty(JCSMPProperties.AUTHENTICATION_SCHEME))) {
+        this.jcsmpProperties.getStringProperty(JCSMPProperties.AUTHENTICATION_SCHEME))) {
       try {
         final String newAccessToken = solaceSessionOAuth2TokenProvider.getAccessToken();
-        jcsmpSession.setProperty(JCSMPProperties.OAUTH2_ACCESS_TOKEN, newAccessToken);
+        this.jcsmpSession.setProperty(JCSMPProperties.OAUTH2_ACCESS_TOKEN, newAccessToken);
       } catch (JCSMPException e) {
         e.printStackTrace(); //TODO: log this properly
       }
