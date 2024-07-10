@@ -28,19 +28,26 @@ public class DefaultSolaceOAuth2SessionEventHandler implements SolaceOAuth2Sessi
    */
   public DefaultSolaceOAuth2SessionEventHandler(JCSMPProperties jcsmpProperties,
       SolaceSessionOAuth2TokenProvider solaceSessionOAuth2TokenProvider) {
-    Objects.requireNonNull(jcsmpProperties);
-    Objects.requireNonNull(solaceSessionOAuth2TokenProvider);
-    this.solaceSessionOAuth2TokenProvider = solaceSessionOAuth2TokenProvider;
     this.jcsmpProperties = jcsmpProperties;
+    this.solaceSessionOAuth2TokenProvider = solaceSessionOAuth2TokenProvider;
+
+    Objects.requireNonNull(jcsmpProperties);
+    if (isAuthSchemeOAuth2()) {
+      Objects.requireNonNull(solaceSessionOAuth2TokenProvider);
+    }
   }
 
   @Override
   public void handleEvent(SessionEventArgs sessionEventArgs) {
     final SessionEvent event = sessionEventArgs.getEvent();
-    final String authScheme = this.jcsmpProperties.getStringProperty(AUTHENTICATION_SCHEME);
-    if (event == RECONNECTING && AUTHENTICATION_SCHEME_OAUTH2.equalsIgnoreCase(authScheme)) {
+    if (event == RECONNECTING && isAuthSchemeOAuth2()) {
       refreshOAuth2AccessToken();
     }
+  }
+
+  protected boolean isAuthSchemeOAuth2() {
+    return AUTHENTICATION_SCHEME_OAUTH2.equalsIgnoreCase(
+        jcsmpProperties.getStringProperty(AUTHENTICATION_SCHEME));
   }
 
   private void refreshOAuth2AccessToken() {

@@ -10,8 +10,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class DefaultSolaceOAuth2SessionEventHandlerTest {
@@ -21,8 +21,8 @@ public class DefaultSolaceOAuth2SessionEventHandlerTest {
 
   private DefaultSolaceOAuth2SessionEventHandler eventHandler;
 
-  @Before
-  public void setUp() {
+  @BeforeEach
+  void setUp() {
     mockTokenProvider = Mockito.mock(SolaceSessionOAuth2TokenProvider.class);
     mockSession = Mockito.mock(JCSMPSession.class);
     JCSMPProperties jcsmpProperties = new JCSMPProperties();
@@ -33,7 +33,7 @@ public class DefaultSolaceOAuth2SessionEventHandlerTest {
   }
 
   @Test
-  public void shouldRefreshTokenOnReconnectingEvent() throws JCSMPException {
+  void shouldRefreshTokenOnReconnectingEvent() throws JCSMPException {
     when(mockTokenProvider.getAccessToken()).thenReturn("newAccessToken");
     SessionEventArgs reconnecting = new SessionEventArgs(RECONNECTING, "Reconnecting", null, 0);
 
@@ -44,7 +44,7 @@ public class DefaultSolaceOAuth2SessionEventHandlerTest {
   }
 
   @Test
-  public void shouldNotRefreshTokenOnNonReconnectingEvent() throws JCSMPException {
+  void shouldNotRefreshTokenOnNonReconnectingEvent() throws JCSMPException {
     SessionEventArgs downError = new SessionEventArgs(DOWN_ERROR, "DownError", null, 0);
 
     eventHandler.handleEvent(downError);
@@ -54,7 +54,7 @@ public class DefaultSolaceOAuth2SessionEventHandlerTest {
   }
 
   @Test
-  public void shouldHandleExceptionWhenRefreshingToken() throws JCSMPException {
+  void shouldHandleExceptionWhenRefreshingToken() throws JCSMPException {
     doThrow(new JCSMPException("Test exception")).when(mockSession)
         .setProperty(eq(OAUTH2_ACCESS_TOKEN), anyString());
     SessionEventArgs reconnecting = new SessionEventArgs(RECONNECTING, "Reconnecting", null, 0);
