@@ -46,8 +46,8 @@ public class DefaultSolaceSessionOAuth2TokenProvider implements SolaceSessionOAu
       final String oauth2ClientRegistrationId = jcsmpProperties
           .getStringProperty(SolaceJavaProperties.SPRING_OAUTH2_CLIENT_REGISTRATION_ID);
 
-      if (logger.isDebugEnabled()) {
-        logger.debug(String.format("Fetching OAuth2 access token using client registration ID: %s",
+      if (logger.isInfoEnabled()) {
+        logger.info(String.format("Fetching OAuth2 access token using client registration ID: %s",
             oauth2ClientRegistrationId));
       }
 
