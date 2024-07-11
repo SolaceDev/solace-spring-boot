@@ -58,6 +58,7 @@
         <module>solace-spring-boot-samples/solace-java-sample-app</module>
         <module>solace-spring-boot-samples/solace-jms-sample-app</module>
         <module>solace-spring-boot-samples/solace-jms-sample-app-jndi</module>
+        <module>solace-spring-boot-samples/solace-java-oauth2-sample-app</module>
         <module>solace-spring-boot-starters/solace-java-spring-boot-starter</module>
         <module>solace-spring-boot-starters/solace-jms-spring-boot-starter</module>
         <module>solace-spring-boot-starters/solace-spring-boot-starter</module>
