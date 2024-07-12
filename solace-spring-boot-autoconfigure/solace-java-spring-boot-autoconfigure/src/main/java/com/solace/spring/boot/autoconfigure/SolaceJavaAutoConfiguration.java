@@ -93,9 +93,9 @@ public class SolaceJavaAutoConfiguration {
     cp.setConnectRetriesPerHost(properties.getConnectRetriesPerHost());
     cp.setReconnectRetryWaitInMillis(properties.getReconnectRetryWaitInMillis());
 
-    if (properties.getSpringOauth2ClientRegistrationId() != null) {
+    if (properties.getOauth2ClientRegistrationId() != null) {
       jcsmpProps.setProperty(SolaceJavaProperties.SPRING_OAUTH2_CLIENT_REGISTRATION_ID,
-          properties.getSpringOauth2ClientRegistrationId());
+          properties.getOauth2ClientRegistrationId());
     }
 
     return jcsmpProps;

@@ -108,14 +108,14 @@ public class SolaceJavaProperties {
      * retrieval. This field is required when the Solace session is configured to use OAuth2 via
      * <code>solace.java.apiProperties.authentication_scheme=AUTHENTICATION_SCHEME_OAUTH2</code>
      */
-    private String springOauth2ClientRegistrationId;
+    private String oauth2ClientRegistrationId;
 
-    public String getSpringOauth2ClientRegistrationId() {
-        return springOauth2ClientRegistrationId;
+    public String getOauth2ClientRegistrationId() {
+        return oauth2ClientRegistrationId;
     }
 
-    public void setSpringOauth2ClientRegistrationId(String springOauth2ClientRegistrationId) {
-        this.springOauth2ClientRegistrationId = springOauth2ClientRegistrationId;
+    public void setOauth2ClientRegistrationId(String oauth2ClientRegistrationId) {
+        this.oauth2ClientRegistrationId = oauth2ClientRegistrationId;
     }
 
     public String getHost() {

@@ -111,7 +111,7 @@ Note that the direct configuration of `solace.java.` properties takes precedence
 
 ## Using OAuth2 Authentication Scheme
 
-This Spring Boot starter for Solace Java API supports OAuth2 authentication scheme.
+This Spring Boot starter for Solace Java API supports OAuth2 authentication scheme. It requires a version of Solace PubSub+ broker that supports OAuth2 authentication scheme. 
 
 The Solace PubSub+ Broker should be setup for OAuth2 authentication. Refer to
 the [Solace PubSub+: Configuring-OAuth-Authorization](https://docs.solace.com/Security/Configuring-OAuth-Authorization.htm)
@@ -122,6 +122,16 @@ for example.
 You may also like to check
 the [OAuth2 Integration Test](../../solace-spring-boot-autoconfigure/solace-java-spring-boot-autoconfigure/src/test/java/com/solace/spring/boot/autoconfigure/springBootTests/MessagingWithOAuthIT.java)
 for more information.
+
+> [!NOTE]
+> The OAuth profile on Solace PubSub+ broker should be setup for Resource Server role. This Solace
+> Java API Starer OAuth2 authentication scheme supports ```client_credentials``` grant type out-of-the
+> box.
+
+> [!TIP]
+> The OAuth2 grant type ```client_credentials``` is used for machine to machine authentication, it
+> is recommended that Token expiry time is not too short as it may cause frequent token refreshes and
+> impact the performance.
 
 ### Using OAuth2 Authentication Scheme with Solace Java API
 
@@ -169,7 +179,7 @@ spring.security.oauth2.client.provider.my-auth-server.token-uri=replace-token-ur
 
 solace.java.host=tcps://localhost:55443  ## OATUH2 authentication scheme requires a secure connection to the broker
 solace.java.msgVpn=replace-msgVpn-here
-solace.java.springOauth2ClientRegistrationId=my-oauth2-client ## Refers to the Spring OAuth2 client registration-id defined above
+solace.java.oauth2ClientRegistrationId=my-oauth2-client ## Refers to the Spring OAuth2 client registration-id defined above
 solace.java.apiProperties.AUTHENTICATION_SCHEME=AUTHENTICATION_SCHEME_OAUTH2
 ```
 

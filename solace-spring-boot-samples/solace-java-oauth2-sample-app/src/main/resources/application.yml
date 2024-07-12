@@ -23,7 +23,7 @@ solace:
     reconnectRetries: 3
     connectRetriesPerHost: 1
     reconnectRetryWaitInMillis: 3000
-    springOauth2ClientRegistrationId: my-oauth2-client # The registrationId of the OAuth2 client in the Spring Security configuration above
+    oauth2ClientRegistrationId: my-oauth2-client # The registrationId of the OAuth2 client in the Spring Security configuration above
     apiProperties:
       #SSL_VALIDATE_CERTIFICATE: false # Set to false in local only, if using self-signed certificates
       AUTHENTICATION_SCHEME: AUTHENTICATION_SCHEME_OAUTH2 # The authentication scheme to be used for connecting to the Solace PubSub+ Broker
