@@ -1,12 +1,18 @@
 package com.solace.spring.boot.autoconfigure.springBootTests;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.fail;
 import com.solace.it.util.semp.config.BrokerConfiguratorBuilder;
 import com.solace.it.util.semp.config.BrokerConfiguratorBuilder.BrokerConfigurator;
+import com.solace.it.util.semp.monitor.BrokerMonitorBuilder;
+import com.solace.it.util.semp.monitor.BrokerMonitorBuilder.BrokerMonitor;
 import com.solace.test.integration.semp.v2.SempV2Api;
+import com.solace.test.integration.semp.v2.action.ApiException;
+import com.solace.test.integration.semp.v2.action.model.ActionMsgVpnClientDisconnect;
 import com.solace.test.integration.semp.v2.config.model.ConfigMsgVpnAuthenticationOauthProfile;
 import com.solace.test.integration.semp.v2.config.model.ConfigMsgVpnAuthenticationOauthProfile.OauthRoleEnum;
 import com.solace.test.integration.semp.v2.config.model.ConfigMsgVpnAuthorizationGroup;
+import com.solace.test.integration.semp.v2.monitor.model.MonitorMsgVpnClient;
 import com.solacesystems.jcsmp.DefaultSolaceOAuth2SessionEventHandler;
 import com.solacesystems.jcsmp.JCSMPProperties;
 import com.solacesystems.jcsmp.JCSMPSession;
@@ -20,6 +26,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.assertj.core.util.Files;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -45,6 +52,8 @@ class MessagingWithOAuthIT implements
 
   private static final Logger logger = LoggerFactory.getLogger(MessagingWithOAuthIT.class);
   private static BrokerConfigurator solaceConfigUtil;
+  private static BrokerMonitor solaceMonitorUtil;
+  private static SempV2Api sempV2Api;
 
   final static String OAUTH_PROFILE_NAME = "SolaceOauthResourceServer";
   final static String AUTHORIZATION_GROUP_NAME = "solclient_oauth_auth_group";
@@ -81,8 +90,9 @@ class MessagingWithOAuthIT implements
       String solaceHost = COMPOSE_CONTAINER.getServiceHost(PUBSUB_BROKER_SERVICE_NAME, 8080);
       int solaceSempPort = COMPOSE_CONTAINER.getServicePort(PUBSUB_BROKER_SERVICE_NAME, 8080);
       String sempUrl = String.format("http://%s:%s", solaceHost, solaceSempPort);
-      SempV2Api sempV2Api = new SempV2Api(sempUrl, "admin", "admin");
+      sempV2Api = new SempV2Api(sempUrl, "admin", "admin");
       solaceConfigUtil = BrokerConfiguratorBuilder.create(sempV2Api).build();
+      solaceMonitorUtil = BrokerMonitorBuilder.create(sempV2Api).build();
 
       logger.debug("Prepare to upload CA cert to the broker");
       final URL resource = MessagingWithOAuthIT.class.getClassLoader()
@@ -199,6 +209,77 @@ class MessagingWithOAuthIT implements
         fail("Timed out waiting for token refresh");
       }
       jcsmpSession.closeSession();
+    } catch (Exception e) {
+      fail(e);
+    }
+  }
+
+  @Test
+  @Tag("SLOW")
+  void canRefreshTokenWhenForceReconnect() {
+    if (!isOAuth2()) {
+      fail("Was expecting the authentication scheme to be OAuth2");
+    }
+
+    try {
+      int numberOfReconnects = 10;
+      CountDownLatch refreshedTokenLatch = new CountDownLatch(numberOfReconnects);
+      SessionEventHandler sessionEventHandler = new DefaultSolaceOAuth2SessionEventHandler(
+          jcsmpProperties, solaceSessionOAuth2TokenProvider) {
+        @Override
+        public void handleEvent(SessionEventArgs sessionEventArgs) {
+          super.handleEvent(sessionEventArgs);
+          logger.info("Token refreshed successfully.");
+          refreshedTokenLatch.countDown();
+        }
+      };
+
+      JCSMPSession jcsmpSession = springJCSMPFactory.createSession(
+          springJCSMPFactory.getDefaultContext(), sessionEventHandler);
+      jcsmpSession.connect();
+      logger.info("Session connected successfully.");
+
+      AtomicBoolean failed = new AtomicBoolean(false);
+      Thread t = new Thread(() -> {
+        for (int i = 0; i < numberOfReconnects; i++) {
+          try {
+            Thread.sleep(10_000);
+            MonitorMsgVpnClient msgVpnClient = solaceMonitorUtil.vpnClients()
+                .queryVpnClients(MSG_VPN_DEFAULT)
+                .stream()
+                .filter(client -> client.getClientUsername().startsWith("default"))
+                .findFirst().orElse(null);
+
+            if (msgVpnClient == null) {
+              throw new RuntimeException("Client not found");
+            }
+
+            try {
+              logger.info("Forcing Session Reconnect for client: {}", msgVpnClient.getClientName());
+              sempV2Api.action()
+                  .doMsgVpnClientDisconnect(MSG_VPN_DEFAULT, msgVpnClient.getClientName(),
+                      new ActionMsgVpnClientDisconnect());
+            } catch (ApiException e) {
+              throw new RuntimeException(e);
+            }
+          } catch (Exception e) {
+            failed.set(true);
+            return;
+          }
+        }
+      });
+
+      t.start();
+
+      logger.info("Wait for session reconnect, to refresh token");
+      boolean success = refreshedTokenLatch.await(3, TimeUnit.MINUTES);
+      if (!success) {
+        fail("Timed out waiting for token refresh");
+      }
+
+      jcsmpSession.closeSession();
+
+      assertFalse(failed.get(), "Failed to force reconnect");
     } catch (Exception e) {
       fail(e);
     }
