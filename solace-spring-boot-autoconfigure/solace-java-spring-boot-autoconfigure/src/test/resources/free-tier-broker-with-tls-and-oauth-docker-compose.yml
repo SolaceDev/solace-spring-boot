@@ -32,7 +32,7 @@ services:
       - solace_msg_net
 
   keycloak:
-    image: jboss/keycloak:16.1.1
+    image: quay.io/keycloak/keycloak:16.1.1
     hostname: keycloak
     networks:
       - solace_msg_net
