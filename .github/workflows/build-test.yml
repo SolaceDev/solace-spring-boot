@@ -36,11 +36,13 @@ jobs:
       - name: Manually Install Test Support If Necessary
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork
         run: |
-          mkdir "${GITHUB_WORKSPACE}/solace-integration-test-support"
-          cd "${GITHUB_WORKSPACE}/solace-integration-test-support"
           sudo apt-get update -qq
           sudo apt-get install -y libxml2-utils
           version="$(xmllint --xpath '/*[local-name()="project"]/*[local-name()="properties"]/*[local-name()="solace.integration.test.support.version"]/text()' pom.xml)"
+          echo "Detected test support version: ${version}"
+
+          mkdir "${GITHUB_WORKSPACE}/solace-integration-test-support"
+          cd "${GITHUB_WORKSPACE}/solace-integration-test-support"
           git clone --depth 1 --branch "${version}" https://github.com/SolaceDev/solace-integration-test-support.git
           mvn install -DskipTests
       - name: Build and run Tests
