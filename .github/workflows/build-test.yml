@@ -41,8 +41,6 @@ jobs:
           version="$(xmllint --xpath '/*[local-name()="project"]/*[local-name()="properties"]/*[local-name()="solace.integration.test.support.version"]/text()' pom.xml)"
           echo "Detected test support version: ${version}"
 
-          mkdir "${GITHUB_WORKSPACE}/solace-integration-test-support"
-          cd "${GITHUB_WORKSPACE}/solace-integration-test-support"
           git clone --depth 1 --branch "${version}" https://github.com/SolaceDev/solace-integration-test-support.git
           mvn install -DskipTests
       - name: Build and run Tests
